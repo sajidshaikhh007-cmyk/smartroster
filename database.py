@@ -1,5 +1,8 @@
 """Create and seed the SQLite database for the Smart Roster project."""
 
+import os
+import shutil
+import tempfile
 from pathlib import Path
 import sqlite3
 import calendar
@@ -9,12 +12,29 @@ from werkzeug.security import generate_password_hash
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DATABASE_PATH = BASE_DIR / "smart_roster.db"
+
+if os.environ.get("DATABASE_PATH"):
+    DATABASE_PATH = Path(os.environ["DATABASE_PATH"])
+elif os.environ.get("VERCEL"):
+    DATABASE_PATH = Path(tempfile.gettempdir()) / "smart_roster.db"
+    source_db = BASE_DIR / "smart_roster.db"
+    if source_db.exists() and not DATABASE_PATH.exists():
+        try:
+            shutil.copy2(source_db, DATABASE_PATH)
+        except Exception:
+            pass
+else:
+    DATABASE_PATH = BASE_DIR / "smart_roster.db"
 
 
 def get_connection():
     """Open a database connection and return rows like dictionaries."""
-    connection = sqlite3.connect(DATABASE_PATH)
+    global DATABASE_PATH
+    try:
+        connection = sqlite3.connect(DATABASE_PATH)
+    except sqlite3.OperationalError:
+        DATABASE_PATH = Path(tempfile.gettempdir()) / "smart_roster.db"
+        connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection

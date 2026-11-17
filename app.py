@@ -4,6 +4,7 @@ import io
 import os
 from functools import wraps
 from datetime import date
+from pathlib import Path
 
 from flask import Flask, Response, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
@@ -12,7 +13,13 @@ from database import get_connection, initialize_database
 from scheduler import daily_summary, find_conflicts, generate_month_roster
 
 
-app = Flask(__name__)
+BASE_DIR = Path(__file__).resolve().parent
+
+app = Flask(
+    __name__,
+    template_folder=str(BASE_DIR / "templates"),
+    static_folder=str(BASE_DIR / "static"),
+)
 app.secret_key = os.environ.get("SECRET_KEY", "local-development-secret-change-before-deployment")
 initialize_database()
 
