@@ -1,63 +1,180 @@
 # Smart Roster Management System
 
-A beginner-friendly Flask and SQLite application for planning, generating and validating monthly employee rosters across brands, processes and operational pods.
+A Flask and SQLite web application for planning, generating, and validating monthly employee rosters across brands, processes, and operational pods. Includes role-based dashboards, task management, leave tracking, holiday calendars, and CSV export.
 
-## Run locally
+---
 
+## 🚀 Live Demo & Deployment on Vercel
+
+This repository is pre-configured with `api/index.py`, `vercel.json`, and `.vercelignore` for serverless deployment on [Vercel](https://vercel.com).
+
+### Option 1: Deploy via Vercel Dashboard & GitHub (Recommended)
+
+1. **Push your code to GitHub**:
+   ```bash
+   git add .
+   git commit -m "Configure for Vercel deployment"
+   git push origin main
+   ```
+2. **Import into Vercel**:
+   - Go to [vercel.com/new](https://vercel.com/new).
+   - Connect your GitHub account and select your `smartroster` repository.
+3. **Configure Project Settings**:
+   - **Framework Preset**: Select `Other`.
+   - **Root Directory**:
+     - If your project files (`app.py`, `vercel.json`) are at the repository root, leave it as `./`.
+     - If your repository contains a nested folder (e.g., `smartroster/app.py`), set the **Root Directory** to `smartroster`.
+4. **Environment Variables**:
+   Under **Environment Variables**, add:
+   - `SECRET_KEY`: Enter a random secure string (e.g. generate via `openssl rand -hex 32` or any long random string).
+   - `FLASK_ENV`: `production` (optional)
+5. **Deploy**:
+   - Click **Deploy**. Vercel will install dependencies from `requirements.txt`, bundle `api/index.py`, and launch your live site.
+
+---
+
+### Option 2: Deploy via Vercel CLI
+
+1. **Install Vercel CLI**:
+   ```bash
+   npm install -g vercel
+   ```
+2. **Login to Vercel**:
+   ```bash
+   vercel login
+   ```
+3. **Deploy from project directory**:
+   ```bash
+   # Navigate to the folder containing vercel.json and app.py
+   cd smartroster
+   vercel
+   ```
+4. **Deploy to Production**:
+   ```bash
+   vercel --prod
+   ```
+
+---
+
+## ⚙️ How Vercel Serverless Works with This Project
+
+- **Entrypoint (`api/index.py`)**: Acts as the WSGI adapter exposing `handler = app` to Vercel's Python Serverless Runtime.
+- **Routing & Assets (`vercel.json`)**:
+  - Rewrites all incoming requests (`/(.*)`) to the serverless entrypoint `/api/index.py`.
+  - Bundles HTML templates and static assets (CSS/JS) using `"includeFiles": "{templates/**,static/**}"`.
+- **Database on Serverless (`database.py`)**:
+  - Vercel functions have a read-only filesystem except for the temporary `/tmp` directory.
+  - When running on Vercel (detected automatically via the `VERCEL` environment variable), the application creates and seeds the SQLite database at `/tmp/smart_roster.db`.
+  - *Note on Persistence*: Serverless instances are stateless and ephemeral; the `/tmp` database will re-initialize when a container cold-starts. This is ideal for evaluations, interviews, and portfolio demonstrations. For permanent production persistence across instances, connect a hosted cloud database (e.g. Turso SQLite via libsql, Supabase, or Neon PostgreSQL) or host on a continuous container service (such as Render or Railway).
+
+---
+
+## 💻 Local Development Setup
+
+### 1. Prerequisites
+- Python 3.10, 3.11, 3.12, or 3.13 installed.
+
+### 2. Setup Virtual Environment
 ```powershell
+# Windows (PowerShell)
+python -m venv .venv
+.\.venv\Scripts\activate
+
+# macOS / Linux (Bash)
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install Dependencies
+```bash
 python -m pip install -r requirements.txt
+```
+
+### 4. Initialize Database
+```bash
 python database.py
+```
+This sets up tables and populates sample data (30 employees, pods, brands, process rules, and default rosters).
+
+### 5. Start the Web Server
+```bash
 python app.py
 ```
 
-Open `http://127.0.0.1:5000`.
+Open your browser at **[http://127.0.0.1:5000](http://127.0.0.1:5000)** or **[http://localhost:5000](http://localhost:5000)**.
 
-## Main screens
+---
 
-- `/` - company dashboard
-- `/roster` - monthly roster generation, manager overrides, leaves and holidays
-- `/manage` - add or remove employee-to-brand/process assignments
-- `/views` - company-wide, pod, brand, process and employee views
-- `/employees` - searchable employee directory
-- `/rules` - configure operating calendars and minimum staffing
-- `/calendar` - visual monthly employee schedule grid
-- `/my-work` - role-aware employee task and update workspace
-- `/export/tasks.csv?month=YYYY-MM` - export monthly work tasks
+## 🔑 Demo Login Credentials
 
-## How the solution works
+The database comes pre-seeded with sample users for all roles:
 
-Employees belong to pods and may have one or more assignments. Each assignment connects an employee to a brand and process. `brand_process_rules` stores the operating calendar and minimum staffing requirement for each brand/process combination. The scheduler starts with employee weekly offs, then applies public holidays, approved leaves and saved manager overrides.
+| Role | Username | Password | Permitted Views & Capabilities |
+| :--- | :--- | :--- | :--- |
+| **Manager** | `manager` | `manager123` | Full access: roster generation, staffing rules, overrides, task assignment |
+| **Pod Lead** | `podlead` | `podlead123` | Pod overview, member rosters, operational updates |
+| **Employee** | `employee` | `employee123` | Personal workspace (`/my-work`), personal schedule, work updates |
+| **Client / Company** | `company_glowbeauty`<br>`company_urbanmart`<br>`company_freshbite`<br>`company_homenest`<br>`company_techzone` | `company123` | Scoped to their brand: view assigned resources, submit work requests |
 
-Before a roster is treated as ready, validation checks each required brand/process/day combination. It flags coverage gaps when the number of available working employees is below the configured minimum and warns when one employee has overlapping responsibilities.
+> ⚠️ *Remember to change default credentials and set a secure `SECRET_KEY` before public production use.*
 
-## Assessment decisions
+---
 
-1. Employees, brands, processes, pods and assignments are separate tables with foreign keys, so the structure can grow without changing scheduling code.
-2. The generator is deterministic and explainable. Mandatory coverage rules are checked separately from manager-controlled preferences such as weekly offs.
-3. A single-resource brand is represented by one assignment; multi-resource brands use several assignments, including shared processes where required.
-4. If a single assigned employee is unavailable, the validator reports a coverage gap for every required day affected and the manager can add a backup assignment or override the day.
-5. Unsatisfied requirements are shown as critical conflicts rather than silently publishing an invalid roster.
-6. Date generation and validation are automated. Assignment changes, leave approval and final schedule overrides remain under manager control because they require operational judgment.
-7. For a larger team, I would add pagination, background generation, role-based access, audit history and a stronger optimisation layer while keeping the same relational model.
-8. With one additional week, I would add fair weekly-off distribution, shift windows, backup recommendations, CSV export and an approval workflow.
+## 🗺️ Application Routes
 
-## Assumptions
+- `/` – Executive company operations dashboard and task queues
+- `/roster` – Monthly roster generator, validation conflict checker, manager overrides, and leave approvals
+- `/manage` – Assign and reassign employees to brand/process pairs
+- `/views` – Filtered roster tables (Company-wide, Pod, Brand, Process, and Employee)
+- `/employees` – Searchable employee directory with weekly-off and pod metadata
+- `/rules` – Operational calendars (365-day, Sundays off, Holidays off) and minimum staffing rules
+- `/calendar` – Visual monthly employee schedule grid
+- `/my-work` – Personalized employee portal for daily updates and task progress
+- `/export/tasks.csv?month=YYYY-MM` – Export monthly work tasks in CSV format
+- `/login` / `/logout` – Authentication endpoints
 
-The included fictional data demonstrates 30 employees, multiple pods, brands and processes. The initial rules intentionally include different calendars: 365-day operations, public-holiday exclusions, Sunday exclusions and minimum staffing requirements. The manager can change assignments, leave days, holidays and daily schedule overrides from the interface.
+---
 
-## Work operations
+## 📁 Project Structure
 
-The roster page also acts as a daily operations board. Company cards show task completion and remaining work; selecting a company reveals its assigned people and queue. Managers can add daily, weekly or monthly tasks, assign them to employees, update task status, record employee work updates, identify idle employees, approve comp-offs, and move a roster through Draft, Submitted, Approved and Published states. Tasks for a selected month can be exported as CSV.
+```text
+smartroster/
+├── api/
+│   └── index.py            # Vercel serverless function entrypoint (handler)
+├── static/
+│   ├── style.css           # Application styling and responsive grid
+│   └── script.js           # Client-side scripts
+├── templates/
+│   ├── _topbar.html        # Shared navigation header
+│   ├── calendar.html       # Monthly grid calendar view
+│   ├── company.html        # Company overview screen
+│   ├── employees.html      # Employee directory
+│   ├── index.html          # Main dashboard
+│   ├── login.html          # Authentication view
+│   ├── manage.html         # Brand/process assignment manager
+│   ├── my_work.html        # Employee task board
+│   ├── roster.html         # Roster generation & operations board
+│   ├── rules.html          # Staffing rules & operating calendar config
+│   └── views.html          # Multi-dimensional roster views
+├── app.py                  # Main Flask application & route controllers
+├── database.py             # SQLite schema, migrations, and seed data generator
+├── scheduler.py            # Deterministic roster generation & validation engine
+├── vercel.json             # Vercel deployment, rewrites, and file bundling config
+├── .vercelignore           # Excludes local caches, venv, and local db from Vercel build
+├── requirements.txt        # Python package dependencies (Flask)
+├── .env.example            # Environment variables template
+└── README.md               # Documentation & deployment guide
+```
 
-## Demo access
+---
 
-The seeded local demo users are:
+## 🛠️ Vercel Deployment Troubleshooting
 
-- Manager: `manager` / `manager123`
-- Pod lead: `podlead` / `podlead123`
-- Employee: `employee` / `employee123`
-- Company logins: `company_glowbeauty`, `company_urbanmart`, `company_freshbite`, `company_homenest`, `company_techzone` / `company123`
-
-Change these credentials before deployment. Manager-only pages are protected, and employee users are limited to their personal workspace.
-
-Company users are scoped to their own brand. They can submit work requests and optionally suggest an assigned employee. Managers can review those requests in the company work queue and assign them to one of that company's employees.
+- **Error: 404 NOT_FOUND on routes like `/roster` or `/login`**:
+  Ensure `vercel.json` is present in the root of the directory deployed to Vercel, containing the rewrites to `/api/index.py`.
+- **Error: TemplateNotFound or static CSS not loading**:
+  Check `vercel.json` to confirm `"functions": { "api/index.py": { "includeFiles": "{templates/**,static/**}" } }` is present.
+- **Root Directory setting on Vercel**:
+  If your GitHub repo has a subfolder named `smartroster`, make sure in your Vercel Project Settings > General, the **Root Directory** is configured to `smartroster`.
+- **Database resets on reload**:
+  Serverless lambdas shut down when idle. When invoked again on a new container, SQLite re-populates from the seed script in `/tmp/smart_roster.db`. For persistent data storage across serverless restarts, integrate an external cloud SQL provider.
