@@ -1,3 +1,4 @@
+
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
@@ -8,10 +9,7 @@
   ],
   "functions": {
     "api/index.py": {
-      "includeFiles": [
-        "templates/**",
-        "static/**"
-      ]
+      "includeFiles": "{templates/**,static/**}"
     }
   }
 }
